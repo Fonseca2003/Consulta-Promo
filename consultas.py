@@ -2,7 +2,6 @@ import streamlit as st
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -11,7 +10,6 @@ from selenium.webdriver.common.keys import Keys
 import time
 import os
 import glob
-import subprocess
 
 # =========================
 # CONFIGURAÇÕES
@@ -90,7 +88,7 @@ def esperar_download_concluir(diretorio, timeout=120):
     return "⚠️ Tempo esgotado aguardando o arquivo .xlsx"
 
 # =========================
-# EXECUÇÃO SELENIUM - VERSÃO COM DETECÇÃO DE VERSÃO
+# EXECUÇÃO SELENIUM - USANDO chromedriver DO SISTEMA
 # =========================
 
 def executar_automacao(usuario, senha, query):
@@ -106,6 +104,7 @@ def executar_automacao(usuario, senha, query):
     options.add_argument("--disable-setuid-sandbox")
     options.add_argument("--remote-debugging-port=9222")
     
+    # Usa o Chromium instalado via packages.txt
     options.binary_location = "/usr/bin/chromium"
 
     prefs = {
@@ -119,18 +118,9 @@ def executar_automacao(usuario, senha, query):
     options.add_experimental_option("prefs", prefs)
 
     try:
-        # === DETECÇÃO DA VERSÃO DO CHROMIUM ===
-        try:
-            version_output = subprocess.check_output(["/usr/bin/chromium", "--version"]).decode("utf-8").strip()
-            # Exemplo: Chromium 146.0.7680.177 → pegamos "146"
-            major_version = version_output.split()[1].split(".")[0]
-            st.info(f"Chromium detectado: versão major {major_version}")
-        except:
-            major_version = "146"  # fallback
-
-        # Força webdriver_manager a baixar driver compatível com a versão major
-        service = Service(ChromeDriverManager(version=f"{major_version}").install())
-
+        # Usa o chromedriver instalado pelo sistema (chromium-driver)
+        service = Service("/usr/bin/chromedriver")
+        
         driver = webdriver.Chrome(service=service, options=options)
         wait = WebDriverWait(driver, 240)
 
