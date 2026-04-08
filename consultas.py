@@ -13,7 +13,7 @@ import os
 import glob
 
 # =========================
-# CONFIGURAÇÕES E XPATHS
+# CONFIGURAÇÕES
 # =========================
 
 URL_LOGIN = "http://10.110.96.44:8000/login"
@@ -30,7 +30,7 @@ ID_MSG_ERRO = "error-message"
 ID_SECAO_ERRO = "error-section"
 
 # =========================
-# LÓGICA DA QUERY (mantida igual)
+# MONTAR QUERY
 # =========================
 
 def montar_query(promocao, empresa, produto):
@@ -73,37 +73,43 @@ WHERE B.NROSEGMENTO = 2
     return query
 
 # =========================
-# FUNÇÃO DE DOWNLOAD (melhorada)
+# DOWNLOAD
 # =========================
 
-def esperar_download_concluir(diretorio, timeout=90):
+def esperar_download_concluir(diretorio, timeout=120):
     segundos = 0
     while segundos < timeout:
         time.sleep(1)
-        arquivos_temp = glob.glob(os.path.join(diretorio, "*.crdownload")) + glob.glob(os.path.join(diretorio, "*.tmp"))
-        if not arquivos_temp:
-            arquivos_xlsx = sorted(glob.glob(os.path.join(diretorio, "*.xlsx")), key=os.path.getctime, reverse=True)
-            if arquivos_xlsx:
-                return f"Sucesso: Download concluído → {os.path.basename(arquivos_xlsx[0])}"
+        temp = glob.glob(os.path.join(diretorio, "*.crdownload")) + glob.glob(os.path.join(diretorio, "*.tmp"))
+        if not temp:
+            arquivos = sorted(glob.glob(os.path.join(diretorio, "*.xlsx")), key=os.path.getctime, reverse=True)
+            if arquivos:
+                return f"✅ Sucesso: {os.path.basename(arquivos[0])}"
         segundos += 1
-    return "Aviso: Tempo esgotado aguardando o arquivo .xlsx"
+    return "⚠️ Tempo esgotado aguardando o arquivo .xlsx"
 
 # =========================
-# AUTOMAÇÃO SELENIUM
+# EXECUÇÃO SELENIUM - VERSÃO OTIMIZADA PARA STREAMLIT CLOUD
 # =========================
 
 def executar_automacao(usuario, senha, query):
     download_dir = os.getcwd()
     
-    chrome_options = Options()
-    chrome_options.add_argument("--headless=new")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--window-size=1920,1080")
-    chrome_options.add_argument("--disable-extensions")
+    options = Options()
     
-    # Preferências para download
+    # Opções essenciais para Cloud + Headless
+    options.add_argument("--headless=new")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--window-size=1920,1080")
+    options.add_argument("--disable-extensions")
+    options.add_argument("--disable-setuid-sandbox")
+    options.add_argument("--remote-debugging-port=9222")
+    
+    # Tenta forçar o binary do Chromium instalado via packages.txt
+    options.binary_location = "/usr/bin/chromium"   # caminho mais comum no Streamlit Cloud
+
     prefs = {
         "download.default_directory": download_dir,
         "download.prompt_for_download": False,
@@ -112,94 +118,89 @@ def executar_automacao(usuario, senha, query):
         "profile.default_content_setting_values.automatic_downloads": 1,
         "browser.helperApps.neverAsk.saveToDisk": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/octet-stream"
     }
-    chrome_options.add_experimental_option("prefs", prefs)
-
-    # Usa webdriver_manager para evitar problemas de versão do chromedriver
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=chrome_options)
-    wait = WebDriverWait(driver, 300)
+    options.add_experimental_option("prefs", prefs)
 
     try:
+        # webdriver_manager tenta baixar o driver compatível
+        service = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=service, options=options)
+        wait = WebDriverWait(driver, 240)
+
         driver.get(URL_LOGIN)
         wait.until(EC.presence_of_element_located((By.XPATH, XPATH_USUARIO))).send_keys(usuario)
         driver.find_element(By.XPATH, XPATH_SENHA).send_keys(senha)
         driver.find_element(By.XPATH, XPATH_BOTAO_LOGIN).click()
 
-        campo_query = wait.until(EC.element_to_be_clickable((By.XPATH, XPATH_CAMPO_QUERY)))
-        actions = ActionChains(driver)
-        actions.click(campo_query)\
-               .key_down(Keys.CONTROL).send_keys('a').key_up(Keys.CONTROL)\
-               .send_keys(Keys.BACKSPACE)\
-               .send_keys(query)\
-               .perform()
+        campo = wait.until(EC.element_to_be_clickable((By.XPATH, XPATH_CAMPO_QUERY)))
+        ActionChains(driver).click(campo)\
+            .key_down(Keys.CONTROL).send_keys('a').key_up(Keys.CONTROL)\
+            .send_keys(Keys.BACKSPACE).send_keys(query).perform()
 
         driver.find_element(By.XPATH, XPATH_BOTAO_EXECUTAR).click()
 
-        # Aguarda página de resultados
-        while True:
-            if "/results/" in driver.current_url:
-                break
-            if driver.find_elements(By.ID, ID_SECAO_ERRO) and driver.find_element(By.ID, ID_SECAO_ERRO).is_displayed():
+        # Aguarda resultados
+        while "/results/" not in driver.current_url:
+            if driver.find_elements(By.ID, ID_SECAO_ERRO):
                 msg = driver.find_element(By.ID, ID_MSG_ERRO).text
-                return f"Erro no Servidor: {msg}"
+                driver.quit()
+                return f"❌ Erro no servidor: {msg}"
             time.sleep(2)
 
-        # Força comportamento de download
+        # Força download
         driver.execute_cdp_cmd("Page.setDownloadBehavior", {"behavior": "allow", "downloadPath": download_dir})
+        botao = wait.until(EC.element_to_be_clickable((By.XPATH, XPATH_BOTAO_DOWNLOAD)))
+        botao.click()
+        time.sleep(4)
 
-        botao_download = wait.until(EC.element_to_be_clickable((By.XPATH, XPATH_BOTAO_DOWNLOAD)))
-        botao_download.click()
-        time.sleep(3)
-
-        return esperar_download_concluir(download_dir, timeout=90)
+        resultado = esperar_download_concluir(download_dir)
+        driver.quit()
+        return resultado
 
     except Exception as e:
-        return f"Erro na automação: {str(e)}"
-    finally:
-        driver.quit()
+        return f"❌ Erro na automação: {str(e)}"
 
 # =========================
-# STREAMLIT UI
+# INTERFACE
 # =========================
 
-st.set_page_config(page_title="SGE - Consulta Promoção", layout="wide")
-st.title("Consulta Promoção")
+st.set_page_config(page_title="Consulta Promoção", layout="wide")
+st.title("🔎 Consulta Promoção")
 
 with st.form("form_consulta"):
-    c1, c2 = st.columns(2)
-    with c1:
-        user_input = st.text_input("Usuário", placeholder="Usuário Consinco")
-    with c2:
-        pass_input = st.text_input("Senha", type="password", placeholder="Senha")
+    col1, col2 = st.columns(2)
+    with col1:
+        usuario = st.text_input("Usuário", placeholder="Usuário Consinco")
+    with col2:
+        senha = st.text_input("Senha", type="password")
 
-    f1, f2, f3 = st.columns([2, 1, 1])
-    with f1:
-        promocao_input = st.text_input("Nome da Promoção (Obrigatório)")
-    with f2:
-        empresa_input = st.text_input("Loja (Opcional)")
-    with f3:
-        produto_input = st.text_input("Produto (Opcional)")
+    col_a, col_b, col_c = st.columns([2, 1, 1])
+    with col_a:
+        promocao = st.text_input("Nome da Promoção (Obrigatório)")
+    with col_b:
+        empresa = st.text_input("Loja (Opcional)")
+    with col_c:
+        produto = st.text_input("Produto (Opcional)")
 
     st.markdown("<br>", unsafe_allow_html=True)
-    btn_executar = st.form_submit_button("🚀 Executar", use_container_width=True)
+    executar = st.form_submit_button("🚀 Executar Consulta", use_container_width=True)
 
-if btn_executar:
-    if not user_input or not pass_input or not promocao_input:
-        st.error("⚠️ Por favor, preencha o usuário, senha e o nome da promoção.")
+if executar:
+    if not usuario or not senha or not promocao:
+        st.error("⚠️ Preencha Usuário, Senha e Nome da Promoção.")
     else:
-        sql_final = montar_query(promocao_input, empresa_input, produto_input)
+        sql = montar_query(promocao, empresa, produto)
         
-        with st.expander("Visualizar SQL Gerado"):
-            st.code(sql_final, language="sql")
+        with st.expander("📄 SQL Gerado"):
+            st.code(sql, language="sql")
 
-        with st.spinner("Executando consulta e baixando arquivo..."):
-            resultado_final = executar_automacao(user_input, pass_input, sql_final)
+        with st.spinner("Executando no SGE e baixando arquivo... (pode demorar até 2 minutos)"):
+            resultado = executar_automacao(usuario, senha, sql)
 
-        if "Sucesso" in resultado_final:
-            st.success(resultado_final)
-        elif "Aviso" in resultado_final:
-            st.warning(resultado_final)
+        if resultado.startswith("✅"):
+            st.success(resultado)
+        elif resultado.startswith("⚠️"):
+            st.warning(resultado)
         else:
-            st.error(resultado_final)
+            st.error(resultado)
 
 st.caption("Inteligência Comercial Mart Minas")
