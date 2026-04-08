@@ -11,6 +11,7 @@ from selenium.webdriver.common.keys import Keys
 import time
 import os
 import glob
+import subprocess
 
 # =========================
 # CONFIGURAÇÕES
@@ -30,7 +31,7 @@ ID_MSG_ERRO = "error-message"
 ID_SECAO_ERRO = "error-section"
 
 # =========================
-# MONTAR QUERY (mantida igual)
+# MONTAR QUERY
 # =========================
 
 def montar_query(promocao, empresa, produto):
@@ -89,7 +90,7 @@ def esperar_download_concluir(diretorio, timeout=120):
     return "⚠️ Tempo esgotado aguardando o arquivo .xlsx"
 
 # =========================
-# EXECUÇÃO SELENIUM - VERSÃO CORRIGIDA
+# EXECUÇÃO SELENIUM - VERSÃO COM DETECÇÃO DE VERSÃO
 # =========================
 
 def executar_automacao(usuario, senha, query):
@@ -118,10 +119,19 @@ def executar_automacao(usuario, senha, query):
     options.add_experimental_option("prefs", prefs)
 
     try:
-        # Tentativa 1: webdriver_manager com detecção automática (sem driver_version)
-        service = Service(ChromeDriverManager().install())
+        # === DETECÇÃO DA VERSÃO DO CHROMIUM ===
+        try:
+            version_output = subprocess.check_output(["/usr/bin/chromium", "--version"]).decode("utf-8").strip()
+            # Exemplo: Chromium 146.0.7680.177 → pegamos "146"
+            major_version = version_output.split()[1].split(".")[0]
+            st.info(f"Chromium detectado: versão major {major_version}")
+        except:
+            major_version = "146"  # fallback
+
+        # Força webdriver_manager a baixar driver compatível com a versão major
+        service = Service(ChromeDriverManager(version=f"{major_version}").install())
+
         driver = webdriver.Chrome(service=service, options=options)
-        
         wait = WebDriverWait(driver, 240)
 
         driver.get(URL_LOGIN)
@@ -156,7 +166,7 @@ def executar_automacao(usuario, senha, query):
         return f"❌ Erro na automação: {str(e)}"
 
 # =========================
-# INTERFACE
+# INTERFACE STREAMLIT
 # =========================
 
 st.set_page_config(page_title="Consulta Promoção", layout="wide")
