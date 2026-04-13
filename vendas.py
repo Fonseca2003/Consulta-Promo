@@ -222,7 +222,7 @@ if not st.session_state.logged_in:
 st.markdown(f"### {st.session_state.user}: **{st.session_state.role}**")
 
 abas_disponiveis = ["Registrar Venda", "Histórico"]
-if st.session_state.role == "ADM":
+if st.session_state.role == "Admnistrador":
     abas_disponiveis.append("Gerenciar Produtos")
 
 tabs = st.tabs(abas_disponiveis)
