@@ -126,38 +126,38 @@ with tabs[0]:
     if df_p.empty:
         st.info("Nenhum produto disponível no momento.")
     else:
+        # 1. Seleção do produto FORA do formulário para permitir reatividade
+        prod_nome = st.selectbox("Selecione o Produto", df_p['produto'].tolist(), key="sel_produto")
+        
+        # 2. Busca os dados do produto selecionado instantaneamente
+        item_row = df_p[df_p['produto'] == prod_nome].iloc[0]
+        preco_sugerido = float(item_row.get('preco', 0.0))
+        custo_unitario = float(item_row.get('custo', 0.0))
+
+        # 3. Início do formulário para os demais dados
         with st.form("form_venda", clear_on_submit=True):
             col1, col2 = st.columns(2)
             
             with col1:
-                prod_nome = st.selectbox("Produto", df_p['produto'].tolist(), key="sel_produto")
-                
-                # Buscamos os dados APENAS quando o formulário for submetido
-                item_row = df_p[df_p['produto'] == prod_nome].iloc[0]
-                
-                preco_unitario = float(item_row.get('preco', 0.0))
-                custo_unitario = float(item_row.get('custo', 0.0))
-                
                 qtd = st.number_input("Quantidade", min_value=1, value=1, step=1)
                 
+                # O valor total agora reage à quantidade e ao preço do produto selecionado acima
                 valor_total_venda = st.number_input(
                     "Valor Total da Venda (R$)", 
-                    value=round(preco_unitario * qtd, 2),
+                    value=round(preco_sugerido * qtd, 2),
                     step=0.01,
                     format="%.2f"
                 )
                 
             with col2:
                 data_v = st.date_input("Data", datetime.now())
-                obs = st.text_input("Observação / Detalhes", placeholder="Cliente, forma de pagamento, etc.")
+                obs = st.text_input("Observação / Detalhes", placeholder="Cliente, forma de pagamento...")
             
-            # ←←← BOTÃO DE SUBMIT OBRIGATÓRIO DENTRO DO FORM ←←←
             enviado = st.form_submit_button("✅ Confirmar Registro da Venda", 
                                            use_container_width=True, 
                                            type="primary")
             
             if enviado:
-                # Só executa quando o botão for clicado
                 custo_total = round(custo_unitario * qtd, 2)
                 
                 ws_vendas.append_row([
@@ -171,9 +171,8 @@ with tabs[0]:
                     custo_total
                 ])
                 
-                st.toast(f"✅ Venda registrada: {int(qtd)}x {prod_nome}", icon="💰")
-                st.success(f"Registrado com sucesso!\nTotal: R$ {valor_total_venda:.2f}")
-                # st.rerun()  # descomente se quiser recarregar imediatamente
+                st.success(f"Registrado com sucesso! Total: R$ {valor_total_venda:.2f}")
+                st.balloons() # Opcional: feedback visual de sucesso
 
 # --- ABA 2: HISTÓRICO ---
 with tabs[1]:
