@@ -26,54 +26,53 @@ custom_css = """
         color: #ffffff !important;
     }
     
-    label, .stSelectbox label, .stTextInput label {
+    label, .stSelectbox label, .stTextInput label, [data-testid="stWidgetLabel"] p {
         color: #ffffff !important;
     }
 
-    /* 3. BOTÕES - MODO PADRÃO */
-    div.stButton > button {
+    /* 3. BOTÕES - MODO PADRÃO (ESCUDO) */
+    div.stButton > button, div[data-testid="stFormSubmitButton"] > button {
         background-color: #333333 !important;
         color: #ffffff !important;
         border: 1px solid #555555 !important;
-        font-weight: 500;
     }
 
-    /* 4. BOTÕES NO MODO CLARO (CELULAR) */
+    /* 4. BOTÕES NO MODO CLARO (CELULAR) - CORREÇÃO DE TEXTO BRANCO */
     @media (prefers-color-scheme: light) {
-        div.stButton > button {
+        /* Alvos: Botões normais e botões de formulário que NÃO são primários */
+        div.stButton > button:not([kind="primary"]), 
+        div[data-testid="stFormSubmitButton"] > button:not([kind="primary"]) {
             background-color: #ffffff !important;
             color: #000000 !important;
             border: 1px solid #333333 !important;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
-        div.stButton > button span,
-        div.stButton > button p {
+
+        /* Força o texto (p e span) a ficar preto dentro desses botões */
+        div.stButton > button:not([kind="primary"]) p,
+        div.stButton > button:not([kind="primary"]) span,
+        div[data-testid="stFormSubmitButton"] > button:not([kind="primary"]) p,
+        div[data-testid="stFormSubmitButton"] > button:not([kind="primary"]) span {
+            color: #000000 !important;
+        }
+        
+        /* Ajuste de labels para o modo claro nas colunas */
+        label, [data-testid="stWidgetLabel"] p {
             color: #000000 !important;
         }
     }
 
-    /* 5. BOTÃO PRIMÁRIO */
-    div.stButton > button[kind="primary"] {
+    /* 5. BOTÃO PRIMÁRIO (Sempre Azul com Texto Branco) */
+    div.stButton > button[kind="primary"], 
+    div[data-testid="stFormSubmitButton"] > button[kind="primary"] {
         background-color: #0066cc !important;
         color: #ffffff !important;
         border: none !important;
     }
-
-    /* 6. CORREÇÃO PARA EXPANDERS (CASO SEJAM USADOS) */
-    [data-testid="stExpanderSummary"] p {
+    div.stButton > button[kind="primary"] p,
+    div[data-testid="stFormSubmitButton"] > button[kind="primary"] p {
         color: #ffffff !important;
     }
 
-    @media (prefers-color-scheme: light) {
-        [data-testid="stExpanderSummary"] p, 
-        [data-testid="stExpanderSummary"] svg {
-            color: #000000 !important;
-            fill: #000000 !important;
-        }
-        [data-testid="stExpanderDetails"] label {
-            color: #000000 !important;
-        }
-    }
 </style>
 """
 st.markdown(custom_css, unsafe_allow_html=True)
