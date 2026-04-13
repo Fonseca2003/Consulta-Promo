@@ -6,9 +6,8 @@ from datetime import datetime
 import base64
 
 # ==========================================
-# CONFIGURAÇÃO DE TEMA (COR DE FUNDO)
+# CONFIGURAÇÃO DE TEMA (COR DE FUNDO + MODO CLARO)
 # ==========================================
-# Podes alterar as cores HEX (#...) abaixo para as que preferires
 custom_css = """
 <style>
     /* 1. CORES DE FUNDO DO SITE */
@@ -23,26 +22,47 @@ custom_css = """
     }
 
     /* 2. TEXTO GERAL (BRANCO) */
-    .stApp, .stMarkdown, p, h1, h2, h3, label {
+    .stApp, .stMarkdown, p, h1, h2, h3, label, .stSelectbox label, .stTextInput label {
         color: #ffffff !important;
     }
 
-    /* 3. BOTÕES - CONFIGURAÇÃO PADRÃO (MODO ESCURO) */
+    /* 3. BOTÕES - MODO ESCURO (padrão) */
     div.stButton > button {
-        background-color: #333333 !important; /* Fundo escuro sólido */
-        background: #333333 !important;       /* Remove gradientes */
-        color: #ffffff !important;            /* Texto branco */
-        border: 1px solid #333333 !important;
-        width: 100%;                          /* Opcional: botão ocupa largura total */
+        background-color: #333333 !important;
+        background: #333333 !important;
+        color: #ffffff !important;
+        border: 1px solid #555555 !important;
+        font-weight: 500;
     }
 
-    /* 4. LÓGICA PARA MODO CLARO DO TELEMÓVEL */
+    /* 4. BOTÕES NO MODO CLARO DO CELULAR / SISTEMA */
     @media (prefers-color-scheme: light) {
         div.stButton > button {
-            background-color: #ffffff !important; /* Fundo branco no modo claro */
+            background-color: #ffffff !important;
             background: #ffffff !important;
-            color: #000000 !important;            /* TEXTO PRETO NO MODO CLARO */
-            border: 1px solid #000000 !important;
+            color: #000000 !important;           /* Texto PRETO */
+            border: 1px solid #333333 !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        /* Força o texto do botão a ficar preto mesmo em elementos internos do Streamlit */
+        div.stButton > button span,
+        div.stButton > button p,
+        div.stButton > button div {
+            color: #000000 !important;
+        }
+    }
+
+    /* Botão primário (o verde/azul do "Confirmar Venda") */
+    div.stButton > button[kind="primary"] {
+        background-color: #0066cc !important;
+        color: #ffffff !important;
+    }
+
+    @media (prefers-color-scheme: light) {
+        div.stButton > button[kind="primary"] {
+            background-color: #0066cc !important;
+            color: #ffffff !important;
         }
     }
 </style>
