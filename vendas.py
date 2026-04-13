@@ -33,7 +33,7 @@ def get_users_df():
 def get_products_df():
     data = ws_produtos.get_all_records()
     if not data:
-        return pd.DataFrame(columns=['produto', 'preco', 'status'])
+        return pd.DataFrame(columns=['produto', 'preco', 'custo', 'status'])
     df = pd.DataFrame(data)
     df.columns = [str(c).strip().lower() for c in df.columns]
     if 'status' in df.columns:
@@ -131,8 +131,14 @@ with tabs[0]:
             with col1:
                 prod_nome = st.selectbox("Produto", df_p['produto'].tolist())
                 item_data = df_p[df_p['produto'] == prod_nome].iloc[0]
-                p_sugerido = float(item_data['preco'])
-                valor_venda = st.number_input("Valor da Venda (R$)", value=p_sugerido, step=0.01)
+                
+                p_unitario = float(item_data['preco'])
+                # Captura o custo atual do produto para registrar na venda
+                custo_unitario = float(item_data['custo']) if 'custo' in item_data else 0.0
+                
+                qtd = st.number_input("Quantidade", min_value=1, value=1, step=1)
+                valor_total_venda = st.number_input("Valor Total da Venda (R$)", value=p_unitario * qtd, step=0.01)
+                
             with col2:
                 data_v = st.date_input("Data", datetime.now())
                 obs = st.text_input("Observação / Detalhes")
@@ -140,19 +146,19 @@ with tabs[0]:
             enviado = st.form_submit_button("Confirmar Registro", use_container_width=True)
             
             if enviado:
+                # Salva: Vendedor, Data, Valor Total, Produto, Obs, Mês Ref, Qtd, Custo Total
                 ws_vendas.append_row([
                     st.session_state.user, 
                     data_v.strftime("%Y-%m-%d"), 
-                    valor_venda, 
+                    valor_total_venda, 
                     prod_nome, 
-                    obs,
-                    data_v.strftime("%m/%Y")
+                    f"{obs} (Qtd: {qtd})",
+                    data_v.strftime("%m/%Y"),
+                    qtd,
+                    custo_unitario * qtd # Custo total da venda
                 ])
-                # --- AJUSTE 1: MENSAGEM DE SUCESSO ---
-                st.toast(f"✅ Venda de {prod_nome} registrada com sucesso!", icon='💰')
-                st.success(f"Venda registrada: {prod_nome} - R$ {valor_venda:.2f}")
-                # Note: O rerun limparia a mensagem de sucesso muito rápido, 
-                # por isso o toast é uma ótima alternativa aqui.
+                st.toast(f"✅ Venda de {qtd}x {prod_nome} registrada!", icon='💰')
+                st.success(f"Registrado: {qtd}x {prod_nome} - Total R$ {valor_total_venda:.2f}")
 
 # --- ABA 2: HISTÓRICO ---
 with tabs[1]:
@@ -162,53 +168,69 @@ with tabs[1]:
         v_df = pd.DataFrame(v_data)
         v_df.columns = [str(c).strip().lower() for c in v_df.columns]
         
+        # Filtro de permissão
         if st.session_state.role != "ADM":
             v_df = v_df[v_df['vendedor'] == st.session_state.user]
+            # Remove coluna de custo para não ADM se ela existir no DF
+            if 'custo_total' in v_df.columns:
+                v_df = v_df.drop(columns=['custo_total'])
         
         if not v_df.empty:
             meses = sorted(v_df['mes_referencia'].unique(), reverse=True)
             mes_f = st.selectbox("Selecione o Mês", meses)
             df_f = v_df[v_df['mes_referencia'] == mes_f].copy()
             
-            # --- AJUSTE 2: MUDAR COLUNA ID PARA CÓDIGO ---
-            # Criamos uma coluna visual para o usuário
             df_f.index.name = "Código"
             st.dataframe(df_f, use_container_width=True)
             
-            st.metric("Total Vendido", f"R$ {df_f['valor'].sum():,.2f}")
+            # Métricas
+            col_m1, col_m2, col_m3 = st.columns(3)
+            total_venda = df_f['valor'].sum()
+            col_m1.metric("Total Vendido", f"R$ {total_venda:,.2f}")
+            
+            # Exibição de Lucro apenas para ADM
+            if st.session_state.role == "ADM" and 'custo_total' in df_f.columns:
+                total_custo = pd.to_numeric(df_f['custo_total']).sum()
+                lucro = total_venda - total_custo
+                col_m2.metric("Custo Total", f"R$ {total_custo:,.2f}")
+                col_m3.metric("Lucro Total", f"R$ {lucro:,.2f}", delta=f"{(lucro/total_venda*100) if total_venda > 0 else 0:.1f}% Margem")
             
             st.divider()
             st.subheader("🗑️ Gerenciar Registros")
             venda_idx = st.selectbox("Selecione uma venda para remover", 
                                      df_f.index, 
-                                     format_func=lambda x: f"Código {x} - {df_f.loc[x, 'produto']} (R$ {df_f.loc[x, 'valor']})")
+                                     format_func=lambda x: f"Cod {x} - {df_f.loc[x, 'produto']} (R$ {df_f.loc[x, 'valor']})")
             
-            if st.button("Excluir Registro Permanente"):
+            if st.button("Excluir Registro Permanente", type="secondary"):
                 ws_vendas.delete_rows(int(venda_idx) + 2)
                 st.warning("Registro removido!")
                 st.rerun()
         else:
-            st.info("Nenhuma venda registrada para seu usuário.")
+            st.info("Nenhuma venda encontrada.")
     else:
         st.info("A planilha de vendas está vazia.")
 
 # --- ABA 3: PRODUTOS (ADM) ---
 if st.session_state.role == "ADM":
     with tabs[2]:
-        st.subheader("🛠️ Gestão de Itens e Preços")
+        st.subheader("🛠️ Gestão de Itens e Custos")
         c_add, c_edit = st.columns(2)
         
         with c_add:
             with st.expander("➕ Cadastrar Novo Produto", expanded=True):
-                n_prod = st.text_input("Nome do Item")
-                n_prec = st.number_input("Preço Base", min_value=0.0, step=0.1)
-                if st.button("Adicionar à Lista"):
-                    if n_prod:
-                        ws_produtos.append_row([n_prod, n_prec, "Ativo"])
-                        st.success("Produto Adicionado!")
-                        st.rerun()
-                    else:
-                        st.error("Digite um nome.")
+                # Usamos o form para resetar os campos ao enviar
+                with st.form("novo_produto_form", clear_on_submit=True):
+                    n_prod = st.text_input("Nome do Item")
+                    n_prec = st.number_input("Preço de Venda Sugerido", min_value=0.0, step=0.01)
+                    n_custo = st.number_input("Custo Unitário", min_value=0.0, step=0.01)
+                    
+                    if st.form_submit_button("Salvar Produto"):
+                        if n_prod:
+                            ws_produtos.append_row([n_prod, n_prec, n_custo, "Ativo"])
+                            st.toast("Produto cadastrado!", icon='✅')
+                            st.rerun()
+                        else:
+                            st.error("O nome do produto é obrigatório.")
 
         with c_edit:
             with st.expander("📝 Editar/Ocultar", expanded=True):
@@ -219,10 +241,10 @@ if st.session_state.role == "ADM":
                     idx_p = df_prods_all[df_prods_all['produto'] == sel_p].index[0] + 2
                     
                     c_btn1, c_btn2 = st.columns(2)
-                    if c_btn1.button("Ocultar Item"):
-                        ws_produtos.update_cell(idx_p, 3, "Oculto")
+                    if c_btn1.button("Ocultar Item", use_container_width=True):
+                        ws_produtos.update_cell(idx_p, 4, "Oculto") # Coluna 4 é o Status agora
                         st.rerun()
-                    if c_btn2.button("Apagar", type="primary"):
+                    if c_btn2.button("Apagar Definitivo", type="primary", use_container_width=True):
                         ws_produtos.delete_rows(idx_p)
                         st.rerun()
 
