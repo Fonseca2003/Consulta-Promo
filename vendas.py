@@ -6,85 +6,83 @@ from datetime import datetime
 import base64
 from PIL import Image
 
-# Carrega a imagem
-img = Image.open("logo.png")
+# 1. CONFIGURAÇÃO DA PÁGINA (Favicon da aba)
+try:
+    img_icon = Image.open("logo.png")
+    st.set_page_config(page_title="Vendas bb.arte", page_icon=img_icon)
+except:
+    st.set_page_config(page_title="Vendas bb.arte", page_icon="🛍️")
 
-st.set_page_config(
-    page_title="Vendas bb.arte",
-    page_icon=img,
-    layout="wide" # Opcional: aproveita melhor o espaço da tela
-)
+# 2. FUNÇÃO PARA FORÇAR ÍCONE NA ÁREA DE TRABALHO (PWA)
+def inject_pwa_icons():
+    try:
+        with open("logo.png", "rb") as f:
+            data = base64.b64encode(f.read()).decode()
+        
+        # Este código injeta metadados que o iOS e Android usam para o ícone do atalho
+        pwa_html = f"""
+            <link rel="apple-touch-icon" href="data:image/png;base64,{data}">
+            <link rel="icon" sizes="192x192" href="data:image/png;base64,{data}">
+            <meta name="mobile-web-app-capable" content="yes">
+            <meta name="apple-mobile-web-app-title" content="Vendas bb.arte">
+        """
+        # Injeta no cabeçalho invisível
+        st.components.v1.html(f"<script>parent.document.head.insertAdjacentHTML('beforeend', `{pwa_html}`);</script>", height=0)
+    except:
+        pass
+
+inject_pwa_icons()
 
 # ==========================================
-# CONFIGURAÇÃO DE TEMA (COR DE FUNDO + MODO CLARO)
+# CONFIGURAÇÃO DE TEMA (CSS)
 # ==========================================
 custom_css = """
 <style>
     /* 1. CORES DE FUNDO DO SITE */
-    [data-testid="stAppViewContainer"] {
-        background-color: #718f98; 
-    }
-    [data-testid="stHeader"] {
-        background-color: #fab0b8;
-    }
-    [data-testid="stSidebar"] {
-        background-color: #718f98;
-    }
+    [data-testid="stAppViewContainer"] { background-color: #718f98; }
+    [data-testid="stHeader"] { background-color: #fab0b8; }
+    [data-testid="stSidebar"] { background-color: #b2ccd3; }
 
     /* 2. TEXTO GERAL */
-    .stApp, .stMarkdown, p, h1, h2, h3 {
-        color: #ffffff !important;
-    }
-    
-    label, .stSelectbox label, .stTextInput label, [data-testid="stWidgetLabel"] p {
-        color: #ffffff !important;
-    }
+    .stApp, .stMarkdown, p, h1, h2, h3 { color: #ffffff !important; }
+    label, .stSelectbox label, .stTextInput label, [data-testid="stWidgetLabel"] p { color: #ffffff !important; }
 
-    /* 3. BOTÕES - MODO PADRÃO (ESCUDO) */
+    /* 3. BOTÕES - MODO PADRÃO */
     div.stButton > button, div[data-testid="stFormSubmitButton"] > button {
         background-color: #333333 !important;
         color: #ffffff !important;
         border: 1px;
     }
 
-    /* 4. BOTÕES NO MODO CLARO (CELULAR) - CORREÇÃO DE TEXTO BRANCO */
+    /* 4. BOTÕES NO MODO CLARO (CELULAR) */
     @media (prefers-color-scheme: light) {
-        /* Alvos: Botões normais e botões de formulário que NÃO são primários */
         div.stButton > button:not([kind="primary"]), 
         div[data-testid="stFormSubmitButton"] > button:not([kind="primary"]) {
             background-color: #ffffff !important;
             color: #000000 !important;
         }
-
-        /* Força o texto (p e span) a ficar preto dentro desses botões */
         div.stButton > button:not([kind="primary"]) p,
         div.stButton > button:not([kind="primary"]) span,
         div[data-testid="stFormSubmitButton"] > button:not([kind="primary"]) p,
         div[data-testid="stFormSubmitButton"] > button:not([kind="primary"]) span {
             color: #000000 !important;
         }
-        
-        /* Ajuste de labels para o modo claro nas colunas */
-        label, [data-testid="stWidgetLabel"] p {
-            color: #000000 !important;
-        }
+        label, [data-testid="stWidgetLabel"] p { color: #000000 !important; }
     }
 
-    /* 5. BOTÃO PRIMÁRIO (Sempre Azul com Texto Branco) */
+    /* 5. BOTÃO PRIMÁRIO */
     div.stButton > button[kind="primary"], 
     div[data-testid="stFormSubmitButton"] > button[kind="primary"] {
         background-color: #0066cc !important;
         color: #ffffff !important;
         border: none !important;
     }
-    div.stButton > button[kind="primary"] p,
-    div[data-testid="stFormSubmitButton"] > button[kind="primary"] p {
-        color: #ffffff !important;
-    }
-
 </style>
 """
 st.markdown(custom_css, unsafe_allow_html=True)
+
+# --- Restante do seu código (get_spreadsheet, Login, Abas...) ---
+# (O código segue igual ao que enviamos antes)
 
 # =========================
 # CONEXÃO E FUNÇÕES BASE
