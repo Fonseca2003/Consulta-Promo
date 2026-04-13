@@ -46,23 +46,7 @@ def get_products_df():
 # =========================
 # SISTEMA DE LOGIN E SEGURANÇA
 # =========================
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
-    st.session_state.user = None
-    st.session_state.role = None
-
-if not st.session_state.logged_in:
-    # --- INCLUSÃO DO LOGO ---
-    col_logo, _ = st.columns([1, 1]) # Ajuste de layout se necessário
-    with col_logo:
-        try:
-            st.image("logo.png", width=200)
-        except:
-            st.warning("Arquivo logo.png não encontrado no diretório.")
-    
-    st.title("Vendas bb.arte")
-    
-    tab_login, tab_esqueci = st.tabs(["Login", "Esqueci minha senha"])
+        client = gspread.authorize(creds)
     df_u = get_users_df()
     
     with tab_login:
