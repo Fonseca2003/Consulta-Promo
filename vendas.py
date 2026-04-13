@@ -56,7 +56,7 @@ if 'logged_in' not in st.session_state:
 
 if not st.session_state.logged_in:
     # --- LOGO E TÍTULO NA MESMA LINHA ---
-    col_icon, col_titulo = st.columns([0.1, 0.9]) # 0.1 para o ícone, 0.9 para o texto
+    col_icon, col_titulo = st.columns([0.3, 0.7]) # 0.1 para o ícone, 0.9 para o texto
     
     with col_icon:
         try:
