@@ -184,7 +184,7 @@ if not st.session_state.logged_in:
 st.markdown(f"### {st.session_state.user}: **{st.session_state.role}**")
 
 abas_disponiveis = ["Registrar Venda", "Histórico"]
-if st.session_state.role == "Adimnistrador":
+if st.session_state.role == "Administrador":
     abas_disponiveis.append("Gerenciar Produtos")
 
 tabs = st.tabs(abas_disponiveis)
@@ -242,7 +242,7 @@ with tabs[1]:
         v_df = pd.DataFrame(v_data)
         v_df.columns = [str(c).strip().lower() for c in v_df.columns]
         
-        if st.session_state.role != "Adimnistrador":
+        if st.session_state.role != "Administrador":
             v_df = v_df[v_df['vendedor'] == st.session_state.user]
             if 'custo_total' in v_df.columns:
                 v_df = v_df.drop(columns=['custo_total'])
@@ -258,7 +258,7 @@ with tabs[1]:
             total_venda = pd.to_numeric(df_f['valor']).sum()
             col_m1.metric("Total Vendido", f"R$ {total_venda:,.2f}")
             
-            if st.session_state.role == "Adimnistrador" and 'custo_total' in df_f.columns:
+            if st.session_state.role == "Administrador" and 'custo_total' in df_f.columns:
                 total_custo = pd.to_numeric(df_f['custo_total']).sum()
                 lucro = total_venda - total_custo
                 col_m2.metric("Custo Total", f"R$ {total_custo:,.2f}")
@@ -277,7 +277,7 @@ with tabs[1]:
             st.info("Sem vendas registadas.")
 
 # --- ABA 3: PRODUTOS (ADM) ---
-if st.session_state.role == "Adimnistrador":
+if st.session_state.role == "Administrador":
     with tabs[2]:
         c_add, c_edit = st.columns(2)
         
