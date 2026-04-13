@@ -11,7 +11,7 @@ import base64
 # Podes alterar as cores HEX (#...) abaixo para as que preferires
 custom_css = """
 <style>
-    /* Suas configurações fixas */
+    /* 1. FUNDOS FIXOS */
     [data-testid="stAppViewContainer"] {
         background-color: #718f98; 
     }
@@ -22,23 +22,26 @@ custom_css = """
         background-color: #b2ccd3;
     }
 
-    /* Texto geral sempre branco (conforme seu código) */
-    .stApp, .stMarkdown, p, h1, h2, h3 {
+    /* 2. TEXTO GERAL (FORA DOS BOTÕES) */
+    .stApp, .stMarkdown, p, h1, h2, h3, label {
         color: #ffffff !important;
     }
 
-    /* --- LÓGICA PARA O MODO CLARO --- */
-    @media (prefers-color-scheme: light) {
-        /* Altera apenas o texto dos botões para preto quando o celular estiver no modo claro */
-        div.stButton > button {
-            color: #000000 !important;
-        }
+    /* 3. CONFIGURAÇÃO DOS BOTÕES (PADRÃO/ESCURO) */
+    div.stButton > button {
+        background-color: #333333 !important; /* Fundo escuro para contrastar */
+        color: #ffffff !important;            /* Texto branco por padrão */
+        border: none !important;
     }
-    
-    /* Opcional: Garantir que no modo escuro o texto do botão continue branco */
-    @media (prefers-color-scheme: dark) {
+
+    /* 4. LÓGICA PARA MODO CLARO DO CELULAR */
+    @media (prefers-color-scheme: light) {
+        /* No modo claro, o fundo do botão continua escuro, mas o texto fica PRETO */
+        /* Ou, se preferir o botão branco com texto preto: */
         div.stButton > button {
-            color: #ffffff !important;
+            background-color: #ffffff !important; 
+            color: #000000 !important;
+            border: 1px solid #000000 !important;
         }
     }
 </style>
