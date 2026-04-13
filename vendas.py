@@ -31,21 +31,19 @@ custom_css = """
         background-color: #333333 !important;
         background: #333333 !important;
         color: #ffffff !important;
-        border: 1px solid #555555 !important;
+        border: 0px solid #555555 !important;
         font-weight: 500;
     }
 
-    /* 4. BOTÕES NO MODO CLARO DO CELULAR / SISTEMA */
+    /* 4. BOTÕES NO MODO CLARO DO CELULAR */
     @media (prefers-color-scheme: light) {
         div.stButton > button {
             background-color: #ffffff !important;
             background: #ffffff !important;
-            color: #000000 !important;           /* Texto PRETO */
-            border: 1px solid #333333 !important;
+            color: #000000 !important;
+            border: 0px solid #333333 !important;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
-
-        /* Força o texto do botão a ficar preto mesmo em elementos internos do Streamlit */
         div.stButton > button span,
         div.stButton > button p,
         div.stButton > button div {
@@ -53,7 +51,7 @@ custom_css = """
         }
     }
 
-    /* Botão primário (o verde/azul do "Confirmar Venda") */
+    /* 5. BOTÃO PRIMÁRIO */
     div.stButton > button[kind="primary"] {
         background-color: #0066cc !important;
         color: #ffffff !important;
@@ -65,10 +63,28 @@ custom_css = """
             color: #ffffff !important;
         }
     }
+
+    /* 6. TÍTULOS DAS SEÇÕES DE PRODUTOS (NOVO / EDITAR) - FICAM PRETOS NO MODO CLARO */
+    .stExpander > div > div > div > h2,
+    .stExpander > div > div > div > h3,
+    .stExpander label > div > p,
+    section[data-testid="stExpander"] h2,
+    section[data-testid="stExpander"] h3 {
+        color: #ffffff !important;
+    }
+
+    @media (prefers-color-scheme: light) {
+        .stExpander > div > div > div > h2,
+        .stExpander > div > div > div > h3,
+        .stExpander label > div > p,
+        section[data-testid="stExpander"] h2,
+        section[data-testid="stExpander"] h3 {
+            color: #000000 !important;   /* Título preto no modo claro */
+        }
+    }
 </style>
 """
 st.markdown(custom_css, unsafe_allow_html=True)
-
 # =========================
 # CONEXÃO E FUNÇÕES BASE (COM CACHE)
 # =========================
