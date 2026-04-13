@@ -97,13 +97,13 @@ ws_vendas = sheet.worksheet("vendas")
 ws_usuarios = sheet.worksheet("usuarios")
 ws_produtos = sheet.worksheet("produtos")
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=150)
 def get_users_df():
     df = pd.DataFrame(ws_usuarios.get_all_records())
     df.columns = [str(c).strip().lower() for c in df.columns]
     return df
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=150)
 def get_products_df():
     data = ws_produtos.get_all_records()
     if not data:
@@ -114,7 +114,7 @@ def get_products_df():
         return df[df['status'] != 'Oculto']
     return df
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=150)
 def get_vendas_data():
     return ws_vendas.get_all_records()
 
