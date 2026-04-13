@@ -5,8 +5,35 @@ from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
 import base64
 
+# ==========================================
+# CONFIGURAÇÃO DE TEMA (COR DE FUNDO)
+# ==========================================
+# Podes alterar as cores HEX (#...) abaixo para as que preferires
+custom_css = """
+<style>
+    [data-testid="stAppViewContainer"] {
+        background-color: #718f98; /* Cor de fundo principal */
+    }
+
+    [data-testid="stHeader"] {
+        background-color: #fab0b8;
+    }
+
+    [data-testid="stSidebar"] {
+        background-color: #b2ccd3; /* Cor de fundo da lateral */
+    }
+
+    /* COR DO TEXTO PRINCIPAL */
+    /* Este seletor muda quase todos os textos básicos do Streamlit */
+    .stApp, .stMarkdown, p, h1, h2, h3 {
+        color: #ffffff !important; /* Troque aqui pela cor desejada */
+    }
+</style>
+"""
+st.markdown(custom_css, unsafe_allow_html=True)
+
 # =========================
-# CONEXÃO E FUNÇÕES BASE
+# CONEXÃO E FUNÇÕES BASE (COM CACHE)
 # =========================
 @st.cache_resource
 def get_spreadsheet():
@@ -46,10 +73,6 @@ def get_products_df():
 @st.cache_data(ttl=600)
 def get_vendas_data():
     return ws_vendas.get_all_records()
-
-@st.cache_data(ttl=600)
-def get_all_products_raw():
-    return ws_produtos.get_all_records()
 
 # =========================
 # SISTEMA DE LOGIN E SEGURANÇA
@@ -111,7 +134,7 @@ if not st.session_state.logged_in:
                 if nova_pwd == confirma_pwd and nova_pwd != "":
                     idx = df_u[df_u['nome'] == user_reset].index[0] + 2
                     ws_usuarios.update_cell(idx, 2, nova_pwd)
-                    st.cache_data.clear() # Limpa o cache após alterar a senha
+                    st.cache_data.clear() # Limpa cache após alteração
                     st.success("✅ Senha alterada com sucesso!")
                 else:
                     st.error("As novas senhas não coincidem.")
@@ -122,7 +145,7 @@ if not st.session_state.logged_in:
 # =========================
 # INTERFACE PRINCIPAL
 # =========================
-st.markdown(f"### 👤 {st.session_state.user}: **{st.session_state.role}**")
+st.markdown(f"### {st.session_state.user}: **{st.session_state.role}**")
 
 abas_disponiveis = ["Registrar Venda", "Histórico"]
 if st.session_state.role == "ADM":
@@ -138,22 +161,18 @@ with tabs[0]:
     if df_p.empty:
         st.info("Nenhum produto disponível no momento.")
     else:
-        # 1. Seleção do produto FORA do formulário para permitir reatividade
+        # Seleção fora do form para atualizar o preço em tempo real
         prod_nome = st.selectbox("Selecione o Produto", df_p['produto'].tolist(), key="sel_produto")
         
-        # 2. Busca os dados do produto selecionado instantaneamente
         item_row = df_p[df_p['produto'] == prod_nome].iloc[0]
         preco_sugerido = float(item_row.get('preco', 0.0))
         custo_unitario = float(item_row.get('custo', 0.0))
 
-        # 3. Início do formulário para os demais dados
         with st.form("form_venda", clear_on_submit=True):
             col1, col2 = st.columns(2)
             
             with col1:
                 qtd = st.number_input("Quantidade", min_value=1, value=1, step=1)
-                
-                # O valor total agora reage à quantidade e ao preço do produto selecionado acima
                 valor_total_venda = st.number_input(
                     "Valor Total da Venda (R$)", 
                     value=round(preco_sugerido * qtd, 2),
@@ -163,15 +182,12 @@ with tabs[0]:
                 
             with col2:
                 data_v = st.date_input("Data", datetime.now())
-                obs = st.text_input("Observação / Detalhes", placeholder="Cliente, forma de pagamento...")
+                obs = st.text_input("Observação / Detalhes", placeholder="Ex: Cartão, Nome do cliente...")
             
-            enviado = st.form_submit_button("✅ Confirmar Registro da Venda", 
-                                           use_container_width=True, 
-                                           type="primary")
+            enviado = st.form_submit_button("✅ Confirmar Venda", use_container_width=True, type="primary")
             
             if enviado:
                 custo_total = round(custo_unitario * qtd, 2)
-                
                 ws_vendas.append_row([
                     st.session_state.user,
                     data_v.strftime("%Y-%m-%d"),
@@ -182,23 +198,20 @@ with tabs[0]:
                     int(qtd),
                     custo_total
                 ])
-                
-                st.cache_data.clear() # Limpa o cache para atualizar o histórico
-                st.success(f"Registrado com sucesso! Total: R$ {valor_total_venda:.2f}")
-                st.balloons() 
+                st.cache_data.clear() # Limpa cache para atualizar o histórico
+                st.success(f"Registrado com sucesso!")
+                st.balloons()
 
 # --- ABA 2: HISTÓRICO ---
 with tabs[1]:
     st.subheader("📊 Relatório de Vendas")
-    v_data = get_vendas_data() # Usa a função com cache
+    v_data = get_vendas_data()
     if v_data:
         v_df = pd.DataFrame(v_data)
         v_df.columns = [str(c).strip().lower() for c in v_df.columns]
         
-        # Filtro de permissão
         if st.session_state.role != "ADM":
             v_df = v_df[v_df['vendedor'] == st.session_state.user]
-            # Remove coluna de custo para não ADM se ela existir no DF
             if 'custo_total' in v_df.columns:
                 v_df = v_df.drop(columns=['custo_total'])
         
@@ -207,100 +220,80 @@ with tabs[1]:
             mes_f = st.selectbox("Selecione o Mês", meses)
             df_f = v_df[v_df['mes_referencia'] == mes_f].copy()
             
-            df_f.index.name = "Código"
             st.dataframe(df_f, use_container_width=True)
             
             # Métricas
             col_m1, col_m2, col_m3 = st.columns(3)
-            # Garante que o valor seja numérico para evitar erros no .sum()
-            total_venda = pd.to_numeric(df_f['valor']).sum() 
+            total_venda = pd.to_numeric(df_f['valor']).sum()
             col_m1.metric("Total Vendido", f"R$ {total_venda:,.2f}")
             
-            # Exibição de Lucro apenas para ADM
             if st.session_state.role == "ADM" and 'custo_total' in df_f.columns:
                 total_custo = pd.to_numeric(df_f['custo_total']).sum()
                 lucro = total_venda - total_custo
                 col_m2.metric("Custo Total", f"R$ {total_custo:,.2f}")
-                col_m3.metric("Lucro Total", f"R$ {lucro:,.2f}", delta=f"{(lucro/total_venda*100) if total_venda > 0 else 0:.1f}% Margem")
+                col_m3.metric("Lucro Total", f"R$ {lucro:,.2f}")
             
             st.divider()
-            st.subheader("🗑️ Gerenciar Registros")
-            venda_idx = st.selectbox("Selecione uma venda para remover", 
-                                     df_f.index, 
-                                     format_func=lambda x: f"Cod {x} - {df_f.loc[x, 'produto']} (R$ {df_f.loc[x, 'valor']})")
+            st.subheader("🗑️ Eliminar Registos")
+            venda_idx = st.selectbox("Escolha uma venda para apagar", df_f.index)
             
-            if st.button("Excluir Registro Permanente", type="secondary"):
+            if st.button("Remover Permanentemente", type="secondary"):
                 ws_vendas.delete_rows(int(venda_idx) + 2)
-                st.cache_data.clear() # Limpa o cache após deletar a venda
-                st.warning("Registro removido!")
+                st.cache_data.clear() # Força atualização após apagar
+                st.warning("Registo removido!")
                 st.rerun()
         else:
-            st.info("Nenhuma venda encontrada.")
-    else:
-        st.info("A planilha de vendas está vazia.")
+            st.info("Sem vendas registadas.")
 
 # --- ABA 3: PRODUTOS (ADM) ---
 if st.session_state.role == "ADM":
     with tabs[2]:
-        st.subheader("🛠️ Gestão de Itens e Custos")
+        st.subheader("🛠️ Gestão de Itens")
         c_add, c_edit = st.columns(2)
         
         with c_add:
-            with st.expander("➕ Cadastrar Novo Produto", expanded=True):
+            with st.expander("➕ Novo Produto", expanded=True):
                 with st.form("novo_produto_form", clear_on_submit=True):
                     n_prod = st.text_input("Nome do Item")
-                    n_prec = st.number_input("Preço de Venda Sugerido", min_value=0.0, step=0.01)
+                    n_prec = st.number_input("Preço de Venda", min_value=0.0, step=0.01)
                     n_custo = st.number_input("Custo Unitário", min_value=0.0, step=0.01)
-                    
-                    if st.form_submit_button("Salvar Produto"):
+                    if st.form_submit_button("Salvar"):
                         if n_prod:
                             ws_produtos.append_row([n_prod, n_prec, n_custo, "Ativo"])
-                            st.cache_data.clear() # Limpa o cache após criar novo produto
-                            st.toast("Produto cadastrado!", icon='✅')
+                            st.cache_data.clear()
+                            st.toast("Cadastrado!", icon='✅')
                             st.rerun()
-                        else:
-                            st.error("O nome do produto é obrigatório.")
 
         with c_edit:
-            with st.expander("📝 Editar ou Remover", expanded=True):
-                df_prods_all = pd.DataFrame(get_all_products_raw()) # Usa a função com cache
+            with st.expander("📝 Editar/Remover", expanded=True):
+                df_prods_all = pd.DataFrame(ws_produtos.get_all_records())
                 if not df_prods_all.empty:
                     df_prods_all.columns = [str(c).strip().lower() for c in df_prods_all.columns]
-                    
-                    # Seleção do produto para editar
-                    sel_p = st.selectbox("Escolher Produto para Modificar", df_prods_all['produto'].tolist())
+                    sel_p = st.selectbox("Produto a modificar", df_prods_all['produto'].tolist())
                     dados_p = df_prods_all[df_prods_all['produto'] == sel_p].iloc[0]
                     idx_p = df_prods_all[df_prods_all['produto'] == sel_p].index[0] + 2
                     
-                    # Campos de Edição preenchidos com valores atuais
-                    with st.form("form_edicao_rapida"):
-                        edit_nome = st.text_input("Nome do Produto", value=dados_p['produto'])
-                        edit_preco = st.number_input("Preço de Venda", value=float(dados_p['preco']), step=0.01)
-                        edit_custo = st.number_input("Custo Unitário", value=float(dados_p['custo']), step=0.01)
+                    with st.form("form_edicao"):
+                        edit_nome = st.text_input("Nome", value=dados_p['produto'])
+                        edit_preco = st.number_input("Preço", value=float(dados_p['preco']), step=0.01)
+                        edit_custo = st.number_input("Custo", value=float(dados_p['custo']), step=0.01)
                         
-                        col_btn_edit, col_btn_status, col_btn_del = st.columns(3)
-                        
-                        if col_btn_edit.form_submit_button("💾 Salvar"):
-                            # Atualiza as colunas A, B e C (1, 2 e 3)
+                        b1, b2, b3 = st.columns(3)
+                        if b1.form_submit_button("💾 Salvar"):
                             ws_produtos.update_cell(idx_p, 1, edit_nome)
                             ws_produtos.update_cell(idx_p, 2, edit_preco)
                             ws_produtos.update_cell(idx_p, 3, edit_custo)
-                            st.cache_data.clear() # Limpa o cache após editar produto
-                            st.toast("Alterações salvas!", icon='✨')
+                            st.cache_data.clear()
                             st.rerun()
-
-                        if col_btn_status.form_submit_button("👁️ Ocultar"):
+                        if b2.form_submit_button("👁️ Ocultar"):
                             ws_produtos.update_cell(idx_p, 4, "Oculto")
-                            st.cache_data.clear() # Limpa o cache após ocultar produto
+                            st.cache_data.clear()
                             st.rerun()
-                            
-                        if col_btn_del.form_submit_button("🗑️ Apagar", type="primary"):
+                        if b3.form_submit_button("🗑️ Apagar", type="primary"):
                             ws_produtos.delete_rows(idx_p)
-                            st.cache_data.clear() # Limpa o cache após apagar produto
+                            st.cache_data.clear()
                             st.rerun()
-                else:
-                    st.info("Nenhum produto cadastrado.")
-                    
+                
 st.sidebar.divider()
 if st.sidebar.button("Sair do Sistema"):
     st.session_state.logged_in = False
