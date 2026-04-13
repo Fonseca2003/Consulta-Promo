@@ -26,7 +26,6 @@ custom_css = """
         color: #ffffff !important;
     }
     
-    /* Labels (títulos dos campos de entrada) */
     label, .stSelectbox label, .stTextInput label {
         color: #ffffff !important;
     }
@@ -53,33 +52,24 @@ custom_css = """
         }
     }
 
-    /* 5. BOTÃO PRIMÁRIO (Destaque Azul) */
+    /* 5. BOTÃO PRIMÁRIO */
     div.stButton > button[kind="primary"] {
         background-color: #0066cc !important;
         color: #ffffff !important;
         border: none !important;
     }
 
-    /* 6. EXPANDERS (CORREÇÃO TÍTULOS BRANCOS NO MODO CLARO) */
-    /* Força Branco no Modo Escuro/Padronizado */
+    /* 6. CORREÇÃO PARA EXPANDERS (CASO SEJAM USADOS) */
     [data-testid="stExpanderSummary"] p {
         color: #ffffff !important;
     }
 
-    /* Ajustes específicos para quando o celular entra em Modo Claro */
     @media (prefers-color-scheme: light) {
-        /* Título do Expander fica Preto */
-        [data-testid="stExpanderSummary"] p {
-            color: #000000 !important;
-        }
-        
-        /* Ícone da Seta do Expander fica Preto */
+        [data-testid="stExpanderSummary"] p, 
         [data-testid="stExpanderSummary"] svg {
-            fill: #000000 !important;
             color: #000000 !important;
+            fill: #000000 !important;
         }
-
-        /* Labels dos campos dentro do expander ficam Pretos para legibilidade */
         [data-testid="stExpanderDetails"] label {
             color: #000000 !important;
         }
@@ -87,8 +77,9 @@ custom_css = """
 </style>
 """
 st.markdown(custom_css, unsafe_allow_html=True)
+
 # =========================
-# CONEXÃO E FUNÇÕES BASE (COM CACHE)
+# CONEXÃO E FUNÇÕES BASE
 # =========================
 @st.cache_resource
 def get_spreadsheet():
@@ -130,7 +121,7 @@ def get_vendas_data():
     return ws_vendas.get_all_records()
 
 # =========================
-# SISTEMA DE LOGIN E SEGURANÇA
+# SISTEMA DE LOGIN
 # =========================
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
@@ -189,7 +180,7 @@ if not st.session_state.logged_in:
                 if nova_pwd == confirma_pwd and nova_pwd != "":
                     idx = df_u[df_u['nome'] == user_reset].index[0] + 2
                     ws_usuarios.update_cell(idx, 2, nova_pwd)
-                    st.cache_data.clear() # Limpa cache após alteração
+                    st.cache_data.clear()
                     st.success("✅ Senha alterada com sucesso!")
                 else:
                     st.error("As novas senhas não coincidem.")
@@ -216,16 +207,13 @@ with tabs[0]:
     if df_p.empty:
         st.info("Nenhum produto disponível no momento.")
     else:
-        # Seleção fora do form para atualizar o preço em tempo real
         prod_nome = st.selectbox("Selecione o Produto", df_p['produto'].tolist(), key="sel_produto")
-        
         item_row = df_p[df_p['produto'] == prod_nome].iloc[0]
         preco_sugerido = float(item_row.get('preco', 0.0))
         custo_unitario = float(item_row.get('custo', 0.0))
 
         with st.form("form_venda", clear_on_submit=True):
             col1, col2 = st.columns(2)
-            
             with col1:
                 qtd = st.number_input("Quantidade", min_value=1, value=1, step=1)
                 valor_total_venda = st.number_input(
@@ -234,7 +222,6 @@ with tabs[0]:
                     step=0.01,
                     format="%.2f"
                 )
-                
             with col2:
                 data_v = st.date_input("Data", datetime.now())
                 obs = st.text_input("Observação / Detalhes", placeholder="Ex: Cartão, Nome do cliente...")
@@ -253,7 +240,7 @@ with tabs[0]:
                     int(qtd),
                     custo_total
                 ])
-                st.cache_data.clear() # Limpa cache para atualizar o histórico
+                st.cache_data.clear()
                 st.success(f"Registrado com sucesso!")
                 st.balloons()
 
@@ -277,7 +264,6 @@ with tabs[1]:
             
             st.dataframe(df_f, use_container_width=True)
             
-            # Métricas
             col_m1, col_m2, col_m3 = st.columns(3)
             total_venda = pd.to_numeric(df_f['valor']).sum()
             col_m1.metric("Total Vendido", f"R$ {total_venda:,.2f}")
@@ -294,7 +280,7 @@ with tabs[1]:
             
             if st.button("Remover Permanentemente", type="secondary"):
                 ws_vendas.delete_rows(int(venda_idx) + 2)
-                st.cache_data.clear() # Força atualização após apagar
+                st.cache_data.clear()
                 st.warning("Registo removido!")
                 st.rerun()
         else:
@@ -307,47 +293,47 @@ if st.session_state.role == "ADM":
         c_add, c_edit = st.columns(2)
         
         with c_add:
-            with st.expander("➕ Novo Produto", expanded=True):
-                with st.form("novo_produto_form", clear_on_submit=True):
-                    n_prod = st.text_input("Nome do Item")
-                    n_prec = st.number_input("Preço de Venda", min_value=0.0, step=0.01)
-                    n_custo = st.number_input("Custo Unitário", min_value=0.0, step=0.01)
-                    if st.form_submit_button("Salvar"):
-                        if n_prod:
-                            ws_produtos.append_row([n_prod, n_prec, n_custo, "Ativo"])
-                            st.cache_data.clear()
-                            st.toast("Cadastrado!", icon='✅')
-                            st.rerun()
+            st.markdown("#### ➕ Novo Produto")
+            with st.form("novo_produto_form", clear_on_submit=True):
+                n_prod = st.text_input("Nome do Item")
+                n_prec = st.number_input("Preço de Venda", min_value=0.0, step=0.01)
+                n_custo = st.number_input("Custo Unitário", min_value=0.0, step=0.01)
+                if st.form_submit_button("Salvar"):
+                    if n_prod:
+                        ws_produtos.append_row([n_prod, n_prec, n_custo, "Ativo"])
+                        st.cache_data.clear()
+                        st.toast("Cadastrado!", icon='✅')
+                        st.rerun()
 
         with c_edit:
-            with st.expander("📝 Editar/Remover", expanded=True):
-                df_prods_all = pd.DataFrame(ws_produtos.get_all_records())
-                if not df_prods_all.empty:
-                    df_prods_all.columns = [str(c).strip().lower() for c in df_prods_all.columns]
-                    sel_p = st.selectbox("Produto a modificar", df_prods_all['produto'].tolist())
-                    dados_p = df_prods_all[df_prods_all['produto'] == sel_p].iloc[0]
-                    idx_p = df_prods_all[df_prods_all['produto'] == sel_p].index[0] + 2
+            st.markdown("#### 📝 Editar/Remover")
+            df_prods_all = pd.DataFrame(ws_produtos.get_all_records())
+            if not df_prods_all.empty:
+                df_prods_all.columns = [str(c).strip().lower() for c in df_prods_all.columns]
+                sel_p = st.selectbox("Produto a modificar", df_prods_all['produto'].tolist())
+                dados_p = df_prods_all[df_prods_all['produto'] == sel_p].iloc[0]
+                idx_p = df_prods_all[df_prods_all['produto'] == sel_p].index[0] + 2
+                
+                with st.form("form_edicao"):
+                    edit_nome = st.text_input("Nome", value=dados_p['produto'])
+                    edit_preco = st.number_input("Preço", value=float(dados_p['preco']), step=0.01)
+                    edit_custo = st.number_input("Custo", value=float(dados_p['custo']), step=0.01)
                     
-                    with st.form("form_edicao"):
-                        edit_nome = st.text_input("Nome", value=dados_p['produto'])
-                        edit_preco = st.number_input("Preço", value=float(dados_p['preco']), step=0.01)
-                        edit_custo = st.number_input("Custo", value=float(dados_p['custo']), step=0.01)
-                        
-                        b1, b2, b3 = st.columns(3)
-                        if b1.form_submit_button("💾 Salvar"):
-                            ws_produtos.update_cell(idx_p, 1, edit_nome)
-                            ws_produtos.update_cell(idx_p, 2, edit_preco)
-                            ws_produtos.update_cell(idx_p, 3, edit_custo)
-                            st.cache_data.clear()
-                            st.rerun()
-                        if b2.form_submit_button("👁️ Ocultar"):
-                            ws_produtos.update_cell(idx_p, 4, "Oculto")
-                            st.cache_data.clear()
-                            st.rerun()
-                        if b3.form_submit_button("🗑️ Apagar", type="primary"):
-                            ws_produtos.delete_rows(idx_p)
-                            st.cache_data.clear()
-                            st.rerun()
+                    b1, b2, b3 = st.columns(3)
+                    if b1.form_submit_button("💾 Salvar"):
+                        ws_produtos.update_cell(idx_p, 1, edit_nome)
+                        ws_produtos.update_cell(idx_p, 2, edit_preco)
+                        ws_produtos.update_cell(idx_p, 3, edit_custo)
+                        st.cache_data.clear()
+                        st.rerun()
+                    if b2.form_submit_button("👁️ Ocultar"):
+                        ws_produtos.update_cell(idx_p, 4, "Oculto")
+                        st.cache_data.clear()
+                        st.rerun()
+                    if b3.form_submit_button("🗑️ Apagar", type="primary"):
+                        ws_produtos.delete_rows(idx_p)
+                        st.cache_data.clear()
+                        st.rerun()
                 
 st.sidebar.divider()
 if st.sidebar.button("Sair do Sistema"):
