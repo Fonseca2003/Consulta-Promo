@@ -46,7 +46,28 @@ def get_products_df():
 # =========================
 # SISTEMA DE LOGIN E SEGURANÇA
 # =========================
-        client = gspread.authorize(creds)
+# =========================
+# SISTEMA DE LOGIN E SEGURANÇA
+# =========================
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.user = None
+    st.session_state.role = None
+
+if not st.session_state.logged_in:
+    # --- LOGO E TÍTULO NA MESMA LINHA ---
+    col_icon, col_titulo = st.columns([0.1, 0.9]) # 0.1 para o ícone, 0.9 para o texto
+    
+    with col_icon:
+        try:
+            st.image("logo.png", width=40) # Largura pequena para parecer um emoji
+        except:
+            st.write("🖼️") # Emoji de fallback caso a imagem falhe
+            
+    with col_titulo:
+        st.title("Vendas bb.arte")
+    
+    tab_login, tab_esqueci = st.tabs(["Login", "Esqueci minha senha"])
     df_u = get_users_df()
     
     with tab_login:
