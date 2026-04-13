@@ -46,26 +46,40 @@ def get_products_df():
 # =========================
 # SISTEMA DE LOGIN E SEGURANÇA
 # =========================
-# =========================
-# SISTEMA DE LOGIN E SEGURANÇA
-# =========================
+
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.user = None
     st.session_state.role = None
 
 if not st.session_state.logged_in:
-    # --- LOGO E TÍTULO NA MESMA LINHA ---
-    col_icon, col_titulo = st.columns([0.3, 0.7]) # 0.1 para o ícone, 0.9 para o texto
-    
-    with col_icon:
+    # --- LOGO E TÍTULO ALINHADOS (CSS PARA MOBILE) ---
+    import base64
+
+    # Função para converter imagem local para base64 (necessário para HTML no Streamlit)
+    def get_base64_image(image_path):
         try:
-            st.image("logo.png", width=40) # Largura pequena para parecer um emoji
+            with open(image_path, "rb") as img_file:
+                return base64.b64encode(img_file.read()).decode()
         except:
-            st.write("🖼️") # Emoji de fallback caso a imagem falhe
-            
-    with col_titulo:
-        st.title("Vendas bb.arte")
+            return None
+
+    img_base64 = get_base64_image("logo.png")
+
+    if img_base64:
+        # Renderiza HTML para forçar alinhamento horizontal
+        st.markdown(
+            f"""
+            <div style="display: flex; align-items: center; margin-bottom: 20px;">
+                <img src="data:image/png;base64,{img_base64}" style="width: 40px; margin-right: 15px;">
+                <h1 style="margin: 0;">Vendas bb.arte</h1>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    else:
+        # Fallback caso a imagem não exista
+        st.title("🛍️ Vendas bb.arte")
     
     tab_login, tab_esqueci = st.tabs(["Login", "Esqueci minha senha"])
     df_u = get_users_df()
