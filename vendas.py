@@ -13,47 +13,6 @@ try:
 except:
     st.set_page_config(page_title="Vendas bb.arte", page_icon="🛍️")
 
-# 2. FUNÇÃO PARA FORÇAR ÍCONE NA ÁREA DE TRABALHO (PWA) - Versão melhorada
-def inject_pwa_icons():
-    try:
-        with open("logo.png", "rb") as f:
-            data = base64.b64encode(f.read()).decode()
-        
-        # Tamanhos mais recomendados para iOS + Android
-        pwa_html = f"""
-            <link rel="apple-touch-icon" href="data:image/png;base64,{data}">
-            <link rel="apple-touch-icon" sizes="180x180" href="data:image/png;base64,{data}">
-            <link rel="apple-touch-icon" sizes="192x192" href="data:image/png;base64,{data}">
-            <link rel="icon" type="image/png" sizes="192x192" href="data:image/png;base64,{data}">
-            <meta name="mobile-web-app-capable" content="yes">
-            <meta name="apple-mobile-web-app-capable" content="yes">
-            <meta name="apple-mobile-web-app-title" content="Vendas bb.arte">
-            <meta name="application-name" content="Vendas bb.arte">
-        """
-        # Injeta o mais cedo possível
-        st.components.v1.html(
-            f"""
-            <script>
-                // Tenta injetar imediatamente
-                function injectIcons() {{
-                    const head = document.head || parent.document.head;
-                    if (head) {{
-                        head.insertAdjacentHTML('beforeend', `{pwa_html}`);
-                    }}
-                }}
-                // Executa agora e também após carregamento completo
-                injectIcons();
-                window.addEventListener('load', injectIcons);
-                // Tentativa extra após 500ms (Streamlit às vezes demora)
-                setTimeout(injectIcons, 500);
-            </script>
-            """, 
-            height=0
-        )
-    except Exception as e:
-        pass  # Silencioso se der erro (ex: logo não encontrado)
-
-inject_pwa_icons()
 
 # ==========================================
 # CONFIGURAÇÃO DE TEMA (CSS)
