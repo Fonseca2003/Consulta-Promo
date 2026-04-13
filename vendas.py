@@ -3,6 +3,7 @@ import pandas as pd
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
+import base64
 
 # =========================
 # CONEXÃO E FUNÇÕES BASE
@@ -26,7 +27,6 @@ ws_produtos = sheet.worksheet("produtos")
 
 def get_users_df():
     df = pd.DataFrame(ws_usuarios.get_all_records())
-    # Normaliza colunas para evitar erros de digitação na planilha
     df.columns = [str(c).strip().lower() for c in df.columns]
     return df
 
@@ -34,11 +34,8 @@ def get_products_df():
     data = ws_produtos.get_all_records()
     if not data:
         return pd.DataFrame(columns=['produto', 'preco', 'status'])
-    
     df = pd.DataFrame(data)
-    # Normaliza colunas: Tirar espaços e colocar em minúsculo
     df.columns = [str(c).strip().lower() for c in df.columns]
-    
     if 'status' in df.columns:
         return df[df['status'] != 'Oculto']
     return df
@@ -46,22 +43,33 @@ def get_products_df():
 # =========================
 # SISTEMA DE LOGIN E SEGURANÇA
 # =========================
-
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.user = None
     st.session_state.role = None
 
 if not st.session_state.logged_in:
-    # --- INCLUSÃO DO LOGO ---
-    col_logo, _ = st.columns([1, 1]) # Ajuste de layout se necessário
-    with col_logo:
+    def get_base64_image(image_path):
         try:
-            st.image("logo.png", width=200)
+            with open(image_path, "rb") as img_file:
+                return base64.b64encode(img_file.read()).decode()
         except:
-            st.warning("Arquivo logo.png não encontrado no diretório.")
-    
-    st.title("Vendas bb.arte")
+            return None
+
+    img_base64 = get_base64_image("logo.png")
+
+    if img_base64:
+        st.markdown(
+            f"""
+            <div style="display: flex; align-items: center; margin-bottom: 20px;">
+                <img src="data:image/png;base64,{img_base64}" style="width: 40px; margin-right: 15px;">
+                <h1 style="margin: 0;">Vendas bb.arte</h1>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    else:
+        st.title("🛍️ Vendas bb.arte")
     
     tab_login, tab_esqueci = st.tabs(["Login", "Esqueci minha senha"])
     df_u = get_users_df()
@@ -92,7 +100,7 @@ if not st.session_state.logged_in:
                 if nova_pwd == confirma_pwd and nova_pwd != "":
                     idx = df_u[df_u['nome'] == user_reset].index[0] + 2
                     ws_usuarios.update_cell(idx, 2, nova_pwd)
-                    st.success("✅ Senha alterada com sucesso! Volte para a aba de Login.")
+                    st.success("✅ Senha alterada com sucesso!")
                 else:
                     st.error("As novas senhas não coincidem.")
             else:
@@ -121,19 +129,14 @@ with tabs[0]:
         with st.form("form_venda", clear_on_submit=True):
             col1, col2 = st.columns(2)
             with col1:
-                # Agora usamos 'produto' (minúsculo) garantido pela função get_products_df
                 prod_nome = st.selectbox("Produto", df_p['produto'].tolist())
-                
-                # Preço sugerido
                 item_data = df_p[df_p['produto'] == prod_nome].iloc[0]
                 p_sugerido = float(item_data['preco'])
-                
                 valor_venda = st.number_input("Valor da Venda (R$)", value=p_sugerido, step=0.01)
             with col2:
                 data_v = st.date_input("Data", datetime.now())
                 obs = st.text_input("Observação / Detalhes")
                 
-            # O botão de envio DEVE estar dentro do 'with st.form'
             enviado = st.form_submit_button("Confirmar Registro", use_container_width=True)
             
             if enviado:
@@ -145,8 +148,11 @@ with tabs[0]:
                     obs,
                     data_v.strftime("%m/%Y")
                 ])
-                st.success("Venda salva com sucesso!")
-                st.rerun()
+                # --- AJUSTE 1: MENSAGEM DE SUCESSO ---
+                st.toast(f"✅ Venda de {prod_nome} registrada com sucesso!", icon='💰')
+                st.success(f"Venda registrada: {prod_nome} - R$ {valor_venda:.2f}")
+                # Note: O rerun limparia a mensagem de sucesso muito rápido, 
+                # por isso o toast é uma ótima alternativa aqui.
 
 # --- ABA 2: HISTÓRICO ---
 with tabs[1]:
@@ -154,7 +160,7 @@ with tabs[1]:
     v_data = ws_vendas.get_all_records()
     if v_data:
         v_df = pd.DataFrame(v_data)
-        v_df.columns = [str(c).strip().lower() for c in v_df.columns] # Normaliza colunas
+        v_df.columns = [str(c).strip().lower() for c in v_df.columns]
         
         if st.session_state.role != "ADM":
             v_df = v_df[v_df['vendedor'] == st.session_state.user]
@@ -162,16 +168,20 @@ with tabs[1]:
         if not v_df.empty:
             meses = sorted(v_df['mes_referencia'].unique(), reverse=True)
             mes_f = st.selectbox("Selecione o Mês", meses)
-            df_f = v_df[v_df['mes_referencia'] == mes_f]
+            df_f = v_df[v_df['mes_referencia'] == mes_f].copy()
             
+            # --- AJUSTE 2: MUDAR COLUNA ID PARA CÓDIGO ---
+            # Criamos uma coluna visual para o usuário
+            df_f.index.name = "Código"
             st.dataframe(df_f, use_container_width=True)
+            
             st.metric("Total Vendido", f"R$ {df_f['valor'].sum():,.2f}")
             
             st.divider()
             st.subheader("🗑️ Gerenciar Registros")
             venda_idx = st.selectbox("Selecione uma venda para remover", 
                                      df_f.index, 
-                                     format_func=lambda x: f"ID {x} - {df_f.loc[x, 'produto']} (R$ {df_f.loc[x, 'valor']})")
+                                     format_func=lambda x: f"Código {x} - {df_f.loc[x, 'produto']} (R$ {df_f.loc[x, 'valor']})")
             
             if st.button("Excluir Registro Permanente"):
                 ws_vendas.delete_rows(int(venda_idx) + 2)
