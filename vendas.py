@@ -34,6 +34,7 @@ custom_css = """
     div.stButton > button, div[data-testid="stFormSubmitButton"] > button {
         background-color: #333333 !important;
         color: #ffffff !important;
+        border: 1px;
     }
 
     /* 4. BOTÕES NO MODO CLARO (CELULAR) - CORREÇÃO DE TEXTO BRANCO */
